@@ -41,8 +41,8 @@ print_column_labels([Col | Rest]) :-
 
 % Print the entire 2D board
 print_2d_board(Board) :-
-    ColumnLabels = [a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s],
-    format('~3a ', [' ']),
+    ColumnLabels = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S'],
+    format('~3a ', ['   ']),
     print_column_labels(ColumnLabels),
     format('~n'),
     print_board_rows(Board, 19, 1).
@@ -60,7 +60,16 @@ print_board_rows([Row | Rest], RowLabel, StartRow) :-
 % Print the contents of a row
 print_board_row_contents([], _).
 print_board_row_contents([Cell | Rest], RowLabel) :-
-    (Cell = 'O' -> format('~3a  ', ['.']); format('~3a  ', [Cell])),
+    (Cell = 'O' -> format('~3a  ', ['.']);
+    Cell = o -> format('~3a  ', ['.']);
+    Cell = 'B' -> format('~3a  ', ['B']);
+    Cell = b -> format('~3a  ', ['B']);
+    Cell = 'W' -> format('~3a  ', ['W']);
+    Cell = w -> format('~3a  ', ['W']);
+    
+
+    
+     format('~3a  ', [Cell])),
     print_board_row_contents(Rest, RowLabel).
 
 % % Set a value on the board
@@ -79,7 +88,7 @@ place_stone(Board, Row, Col, Symbol, NewBoard) :-
             update_board(Board, Row, Col, Symbol, NewBoard);
             (Value = 'O' ->
                 update_board(Board, Row, Col, Symbol, NewBoard);
-                (write('Invalid move.'), nl, write('Please try again.'), nl, getUserMove, fail)
+                (write('Invalid move.'), nl, write('Please try again.'), nl, fail)
             )
         ));
         format('Indices out of bounds.(from place_stone)~n')
@@ -149,31 +158,6 @@ set_board_value(Board, Row, Col, NewValue,UpdatedBoard) :-
         % write('Col is '), write(Col), nl
     ).
 
-
-
-
-% % Get the value of a specific cell on the board
-% get_board_value(Board, Row, Col, Value) :-
-%     (Row >= 0, Row =< 18, Col >= 0, Col =< 18 ->
-%         get_row_value(Board, Row, Col, Value);
-%         format('Indices out of bounds.(from get_board_value)~n')
-%     ).
-
-% % Get the value of a specific cell in a row
-% get_row_value([], _, _, []).
-% get_row_value([FirstRow | Rest], 0, Col, Value) :-
-%     get_column_value(FirstRow, Col, Value).
-% get_row_value([FirstRow | Rest], Row, Col, Value) :-
-%     Row > 0,
-%     Row1 is Row - 1,
-%     get_row_value(Rest, Row1, Col, Value).
-
-% % Get the value of a specific cell in a column
-% get_column_value(Row, 0, Value) :- nth0(0, Row, Value).
-% get_column_value(Row, Col, Value) :-
-%     Col > 0,
-%     Col1 is Col - 1,
-%     get_column_value(Row, Col1, Value).
 
 % Get the value of a specific cell on the board
 get_board_value(Board, Row, Col, Value) :-
@@ -248,10 +232,51 @@ is_within_bounds(Row, Col) :-
 
 
 
-
-
 % Check for four consecutive symbols
 % check_four(Board, Row, Col, Symbol) :- check_consecutive(Board, Row, Col, Symbol, 4).
+check_four(Board, Symbol, [X, Y]) :-
+    directions(Directions),
+    check_both_directions_four(Board, Symbol, X, Y, Directions, Found),
+    Found = true.
+
+check_both_directions_four(_, _, _, _, [], false).
+
+check_both_directions_four(Board, Symbol, X, Y, [[Dx, Dy] | Rest], Found) :-
+    opposite_direction([Dx, Dy], [OppositeDx, OppositeDy]),
+    check_consecutive_four(Board, X, Y, Dx, Dy, Symbol, 0, Count1),
+    check_consecutive_four(Board, X, Y, OppositeDx, OppositeDy, Symbol, 0, Count2),
+    Total is Count1 + Count2 ,
+    (   Total >= 3
+    ->  Found = true
+    ;   check_both_directions_four(Board, Symbol, X, Y, Rest, Found)
+    ).
+
+check_consecutive_four(Board, X, Y, Dx, Dy, Symbol, Depth, Count) :-
+    NewX is X + Dx,
+    NewY is Y + Dy,
+    (
+        % Base case: out of bounds, max depth, or cell doesn't match the symbol
+        not(is_within_bounds(NewX, NewY));
+        Depth >= 4;
+        (is_within_bounds(NewX,NewY),
+        (get_board_value(Board, NewX, NewY, Cell), Cell \= Symbol))
+    ),
+    Count = 0.
+
+check_consecutive_four(Board, X, Y, Dx, Dy, Symbol, Depth, Count) :-
+    NewX is X + Dx,
+    NewY is Y + Dy,
+    is_within_bounds(NewX, NewY),
+    Depth < 4,
+    get_board_value(Board, NewX, NewY, Cell),
+    Cell == Symbol,
+    % Recursive case: continue counting in the given direction
+    NextDepth is Depth + 1,
+    check_consecutive_four(Board, NewX, NewY, Dx, Dy, Symbol, NextDepth, NextCount),
+    Count is 1 + NextCount.
+
+
+
 
 opponent_symbol('W', 'B').
 opponent_symbol('B', 'W').
@@ -375,3 +400,46 @@ rowDifference(Row1, Row2, Diff) :-
 % Helper predicate to calculate the absolute difference in columns.
 colDifference(Col1, Col2, Diff) :-
     Diff is abs(Col1 - Col2).
+
+
+% Check for n consecutive symbols
+check_n(Board, Symbol, [X, Y], N) :-
+    directions(Directions),
+    check_both_directions_n(Board, Symbol, X, Y, Directions, N, Found),
+    Found = true.
+
+check_both_directions_n(_, _, _, _, [], _, false).
+
+check_both_directions_n(Board, Symbol, X, Y, [[Dx, Dy] | Rest], N, Found) :-
+    opposite_direction([Dx, Dy], [OppositeDx, OppositeDy]),
+    check_consecutive_n(Board, X, Y, Dx, Dy, Symbol, 0, N, Count1),
+    check_consecutive_n(Board, X, Y, OppositeDx, OppositeDy, Symbol, 0, N, Count2),
+    Total is Count1 + Count2 ,
+    (   Total >= N-1
+    ->  Found = true
+    ;   check_both_directions_n(Board, Symbol, X, Y, Rest, N, Found)
+    ).
+
+check_consecutive_n(Board, X, Y, Dx, Dy, Symbol, Depth, N, Count) :-
+    NewX is X + Dx,
+    NewY is Y + Dy,
+    (
+        % Base case: out of bounds, max depth, or cell doesn't match the symbol
+        not(is_within_bounds(NewX, NewY));
+        Depth >= N;
+        (is_within_bounds(NewX, NewY),
+        (get_board_value(Board, NewX, NewY, Cell), Cell \= Symbol))
+    ),
+    Count = 0.
+
+check_consecutive_n(Board, X, Y, Dx, Dy, Symbol, Depth, N, Count) :-
+    NewX is X + Dx,
+    NewY is Y + Dy,
+    is_within_bounds(NewX, NewY),
+    Depth < N,
+    get_board_value(Board, NewX, NewY, Cell),
+    Cell == Symbol,
+    % Recursive case: continue counting in the given direction
+    NextDepth is Depth + 1,
+    check_consecutive_n(Board, NewX, NewY, Dx, Dy, Symbol, NextDepth, N, NextCount),
+    Count is 1 + NextCount.

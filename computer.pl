@@ -77,8 +77,6 @@ checkNextCell(CurrentBoard, CurrentRow, CurrentCol, PlayerSymbol, Result) :-
         Result = [nil, nil]
         
     ;   CurrentCol >= 18 ->
-        write('Current row is '), write(CurrentRow), nl,
-
         NextRow is CurrentRow + 1,
         NextCol is 0,
         checkCell(CurrentBoard, NextRow, NextCol, PlayerSymbol, Result)
@@ -153,31 +151,70 @@ defendCapturePosition(Board, PlayerSymbol, Result) :-
 makeFourMove(Board, PlayerSymbol, Result) :-
     checkCellFour(Board, 0, 0, PlayerSymbol, Result).
 
-checkNextCellFourMove(CurrentBoard, CurrentRow, CurrentCol, Result) :-
+checkNextCellFour(CurrentBoard, CurrentRow, CurrentCol, PlayerSymbol, Result) :-
     (   CurrentRow >= 18 ->
         Result = [nil, nil]
+        
     ;   CurrentCol >= 18 ->
-        checkCellFour(CurrentBoard, CurrentRow + 1, 0, _, Result)
-    ;   checkCellFour(CurrentBoard, CurrentRow, CurrentCol + 1, _, Result)
+
+        NextRow is CurrentRow + 1,
+        NextCol is 0,
+        checkCellFour(CurrentBoard, NextRow, NextCol, PlayerSymbol, Result)
+    ;   
+        % Increment the column for the next iteration
+        NextCol is CurrentCol + 1,
+        checkCellFour(CurrentBoard, CurrentRow, NextCol, PlayerSymbol, Result)
     ).
+    
 
 checkCellFour(CurrentBoard, Row, Col, PlayerSymbol, Result) :-
     (   emptyCellP(CurrentBoard, Row, Col) ->
         set_board_value(CurrentBoard, Row, Col, PlayerSymbol, NewBoard),
-        (   check_four(NewBoard, Row, Col, PlayerSymbol) ->
-            Result = [Row, Col]
-        ;   checkNextCellFourMove(CurrentBoard, Row, Col, Result)
+        (   check_four(NewBoard, PlayerSymbol, [Row, Col]) ->
+            Result = [Row, Col] % Return the row and col of the winning move
+        ; 
+           checkNextCellFour(CurrentBoard, Row, Col, PlayerSymbol, Result)
         )
-    ;   checkNextCellFourMove(CurrentBoard, Row, Col, Result)
+     ;  
+        checkNextCellFour(CurrentBoard, Row, Col, PlayerSymbol, Result)
     ).
+
+
 
 % Defend a move for four consecutive stones
 defendFourMove(Board, PlayerSymbol, Result) :-
-    (   PlayerSymbol = 'W' ->
-        OpponentSymbol = 'B'
-    ;   OpponentSymbol = 'W'
-    ),
+    opponent_symbol(PlayerSymbol, OpponentSymbol),
     makeFourMove(Board, OpponentSymbol, Result).
+
+makeNMove(Board, PlayerSymbol, Consecutive, Result) :-
+    checkCellN(Board, 0, 0, PlayerSymbol, Consecutive, Result).
+
+checkNextCellN(CurrentBoard, CurrentRow, CurrentCol, PlayerSymbol, Consecutive, Result) :-
+    (   CurrentRow >= 18 ->
+        Result = [nil, nil]
+    ;   CurrentCol >= 18 ->
+        NextRow is CurrentRow + 1,
+        NextCol is 0,
+        checkCellN(CurrentBoard, NextRow, NextCol, PlayerSymbol, Consecutive, Result)
+    ;   
+        % Increment the column for the next iteration
+        NextCol is CurrentCol + 1,
+        checkCellN(CurrentBoard, CurrentRow, NextCol, PlayerSymbol, Consecutive, Result)
+    ).
+
+checkCellN(CurrentBoard, Row, Col, PlayerSymbol, Consecutive, Result) :-
+    (   emptyCellP(CurrentBoard, Row, Col) ->
+        set_board_value(CurrentBoard, Row, Col, PlayerSymbol, NewBoard),
+        (   check_n(NewBoard, PlayerSymbol, [Row, Col], Consecutive) ->
+            Result = [Row, Col] % Return the row and col of the winning move
+        ; 
+            checkNextCellN(CurrentBoard, Row, Col, PlayerSymbol, Consecutive, Result)
+        )
+        ;  
+        checkNextCellN(CurrentBoard, Row, Col, PlayerSymbol, Consecutive, Result)
+    ).
+    
+
 
 is_nil(List):-
     List = [nil, nil].
@@ -186,12 +223,12 @@ is_nil(List):-
 evaluateAllCases(Board, PlayerSymbol, Result) :-
     findWinningMove(Board, PlayerSymbol, WinningMove),
     defendWinningMove(Board, PlayerSymbol, DefendingWin),
-    % makeFourMove(Board, PlayerSymbol, MakeFour),
-    % defendFourMove(Board, PlayerSymbol, DefendingFour),
+    makeFourMove(Board, PlayerSymbol, MakeFour),
+    defendFourMove(Board, PlayerSymbol, DefendingFour),
     findCapturePosition(Board, PlayerSymbol, CapturingOpponent),
     defendCapturePosition(Board, PlayerSymbol, DefendingCapture),
-    % makeConsecutiveMove(Board, PlayerSymbol, 3, MaxConsecutivePos3),
-    % makeConsecutiveMove(Board, PlayerSymbol, 2, MaxConsecutivePos2),
+    makeNMove(Board, PlayerSymbol, 3, MaxConsecutivePos3),
+    makeNMove(Board, PlayerSymbol, 2, MaxConsecutivePos2),
     randomMove(RandomMove),
 
     (   \+ is_nil(WinningMove) ->
@@ -200,24 +237,24 @@ evaluateAllCases(Board, PlayerSymbol, Result) :-
     ;   \+ is_nil(DefendingWin) ->
         format('Reason: Defending Win~n'),
         Result = DefendingWin
-    % ;   \+ is_nil(DefendingFour) ->
-    %     format('Reason: Defending Four~n'),
-    %     Result = DefendingFour
+    ;   \+ is_nil(DefendingFour) ->
+        format('Reason: Defending Four~n'),
+        Result = DefendingFour
     ;   \+ is_nil(CapturingOpponent) ->
         format('Reason: Capturing Opponent~n'),
         Result = CapturingOpponent
     ;   \+ is_nil(DefendingCapture) ->
         format('Reason: Defending Capture~n'),
         Result = DefendingCapture
-    % ;   \+ is_nil(MakeFour) ->
-    %     format('Reason: Making Four~n'),
-    %     Result = MakeFour
-    % ;   \+ is_nil(MaxConsecutivePos3) ->
-    %     format('Reason: Max Consecutive of 3~n'),
-    %     Result = MaxConsecutivePos3
-    % ;   \+ is_nil(MaxConsecutivePos2) ->
-    %     format('Reason: Max Consecutive of 2~n'),
-    %     Result = MaxConsecutivePos2
+    ;   \+ is_nil(MakeFour) ->
+        format('Reason: Making Four~n'),
+        Result = MakeFour
+    ;   \+ is_nil(MaxConsecutivePos3) ->
+        format('Reason: Max Consecutive of 3~n'),
+        Result = MaxConsecutivePos3
+    ;   \+ is_nil(MaxConsecutivePos2) ->
+        format('Reason: Max Consecutive of 2~n'),
+        Result = MaxConsecutivePos2
     ;   format('Reason: Random Move~n'),
         Result = RandomMove
     ).

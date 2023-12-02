@@ -3,10 +3,6 @@
 :-compile('human.pl').
 
 
-
-
-
-
 start_game(PlayerType, OpponentType) :-
     writeln('Starting a new game'),
     writeln('Tossing a coin to decide who plays first'),
@@ -20,8 +16,6 @@ start_game(PlayerType, OpponentType) :-
     writeln(UserInput),
 
     % Define a predicate to check if the user won the toss
-
-    
     (UserInput =:= Tossed ->
         writeln('You won the toss.'),
         writeln('You will play: White'),
@@ -55,15 +49,7 @@ toss_coin(Tossed) :-
 
 
 %play the round
-% play_game(Board, _, _, _, _, MoveCount, 'WinConditionMet') :-
-   
-%     writeln('Win condition met. Game over.'),
-%     print_2d_board(Board),
-%     true.
-    % Add your win condition check here
-    % For example, if a certain player has won, you can check it here.
-
-play_game(Board, PlayerColor, PlayerType, OpponentColor, OpponentType, PlayerCaptures, OpponentCaptures, MoveCount, Result) :-
+play_game(Board, PlayerColor, PlayerType, OpponentColor, OpponentType, PlayerCaptures, OpponentCaptures, MoveCount, HumanTournament, ComputerTournament, Result) :-
     print_2d_board(Board),
     writeln('--------------------------------------------'),
     format('~a\'s turn.~n', [PlayerType]),
@@ -72,10 +58,11 @@ play_game(Board, PlayerColor, PlayerType, OpponentColor, OpponentType, PlayerCap
     (
         (PlayerType = 'Human' ->
             % get the move from the user
-            human_move(Board, PlayerColor, MoveCount, PlayerMove),
+            % human_move(Board, PlayerColor, MoveCount, PlayerMove),
+            
+            getUserMove(Board,PlayerColor, PlayerType,OpponentColor,OpponentType,PlayerCaptures,OpponentCaptures,MoveCount, HumanTournament, ComputerTournament, PlayerMove),
+            PlayerMove = [Row, Col],
 
-            convertMove(PlayerMove, Row, Col),
-            %check for five in a row
             place_stone(Board, Row, Col, PlayerColor, NewBoard),
     
             (check_five(NewBoard, PlayerColor,[ Row, Col]) ->
@@ -83,40 +70,25 @@ play_game(Board, PlayerColor, PlayerType, OpponentColor, OpponentType, PlayerCap
                 print_2d_board(NewBoard),
             
                 %calculate score as game ended
-                Result = [NewBoard, PlayerColor, PlayerType, OpponentColor, OpponentType, PlayerCaptures, OpponentCaptures, 5],
-
-                % Result = [Board, WinnerColor, WinnerType, OpponentColor, OpponentType, WinnerCapture, OpponentCapture, IsFiveInARow],
-
+                Result = [NewBoard, PlayerColor, PlayerType, OpponentColor, OpponentType, PlayerCaptures, OpponentCaptures, HumanTournament, ComputerTournament, 5],
                 calculate_score(Result, HumanScore, ComputerScore)
 
                 ;
-            (recursively_check_capture(NewBoard,Row,Col,PlayerColor,PlayerCaptures,NewBoard2,NumCaptures)
-            ->
-                print_2d_board(NewBoard2),
-                NextMoveCount is MoveCount + 1,
 
-                play_game(NewBoard2, OpponentColor, OpponentType, PlayerColor, PlayerType, OpponentCaptures, PlayerCaptures,NextMoveCount, Result)
+                (recursively_check_capture(NewBoard,Row,Col,PlayerColor,PlayerCaptures,NewBoard2,NumCaptures)
+                ->
+                    print_2d_board(NewBoard2),
+                    captures('Human', NumCaptures,'Computer', OpponentCaptures),
+                    NextMoveCount is MoveCount + 1,
+                    play_game(NewBoard2, OpponentColor, OpponentType, PlayerColor, PlayerType, OpponentCaptures, NumCaptures,NextMoveCount, HumanTournament, ComputerTournament,Result)
 
-            ;
-                NextMoveCount is MoveCount + 1,
+                ;
+                    NextMoveCount is MoveCount + 1,
+                    captures('Human', PlayerCaptures,'Computer', OpponentCaptures),
+                    play_game(NewBoard, OpponentColor, OpponentType, PlayerColor, PlayerType, OpponentCaptures, PlayerCaptures,NextMoveCount, HumanTournament, ComputerTournament, Result)
 
-                play_game(NewBoard, OpponentColor, OpponentType, PlayerColor, PlayerType, OpponentCaptures, PlayerCaptures,NextMoveCount, Result)
-
-            ),
-
-
-
-            NextMoveCount is MoveCount + 1,
-
-            play_game(NewBoard, OpponentColor, OpponentType, PlayerColor, PlayerType, OpponentCaptures, PlayerCaptures,NextMoveCount, Result)
-
-
-
+                )
             )
-
-
-            
-            
         )
 
         ;
@@ -124,62 +96,68 @@ play_game(Board, PlayerColor, PlayerType, OpponentColor, OpponentType, PlayerCap
         (PlayerType = 'Computer' ->
             % get the move from the computer
             computer_move(Board, PlayerColor, MoveCount,ComputerMove),
-            writeln('Computer\'s move: '),
             ComputerMove = [Row, Col, MoveInfo],
+            write('Computer\'s move: '), writeln(MoveInfo),
+
             place_stone(Board, Row, Col, PlayerColor, NewBoard),
             print_2d_board(NewBoard),
 
             (check_five(NewBoard, PlayerColor,[ Row, Col]) ->
-                format('You win!~n'),
+                format('Computer wins!~n'),
                 print_2d_board(NewBoard),
             
                 %calculate score as game ended
-                Result = [NewBoard, PlayerColor, PlayerType, OpponentColor, OpponentType, PlayerCaptures, OpponentCaptures, 4]
-
+                Result = [NewBoard, PlayerColor, PlayerType, OpponentColor, OpponentType, PlayerCaptures, OpponentCaptures,HumanTournament, ComputerTournament, 5],
+                calculate_score(Result, HumanScore, ComputerScore)
 
                 ;
 
-                write('no win')
+                (recursively_check_capture(NewBoard,Row,Col,PlayerColor,PlayerCaptures,NewBoard2,NumCaptures)
+                ->
+                    print_2d_board(NewBoard2),
+                    captures('Computer', NumCaptures, 'Human',  OpponentCaptures),
+                    NextMoveCount is MoveCount + 1,
+                    play_game(NewBoard2, OpponentColor, OpponentType, PlayerColor, PlayerType, OpponentCaptures, NumCaptures,NextMoveCount, HumanTournament, ComputerTournament, Result)
 
-            ),   
+                ;
+                    NextMoveCount is MoveCount + 1,
+                    captures('Human', PlayerCaptures,'Computer', OpponentCaptures),
+                    play_game(NewBoard, OpponentColor, OpponentType, PlayerColor, PlayerType, OpponentCaptures, PlayerCaptures,NextMoveCount, HumanTournament, ComputerTournament, Result)
+                )
 
-            (recursively_check_capture(NewBoard,Row,Col,PlayerColor,0,NewBoard2,NumCaptures)
-            ->
-                print_2d_board(NewBoard2),
-                NextMoveCount is MoveCount + 1,
-
-                play_game(NewBoard2, OpponentColor, OpponentType, PlayerColor, PlayerType, OpponentCaptures, PlayerCaptures,NextMoveCount, Result)
-
-            ;
-                NextMoveCount is MoveCount + 1,
-
-                play_game(NewBoard, OpponentColor, OpponentType, PlayerColor, PlayerType, OpponentCaptures, PlayerCaptures,NextMoveCount, Result)
             )
-
+            
         )
     ).
 
     
-    calculate_score(Result, HumanScore, ComputerScore) :-
-        Result = [Board, WinnerColor, WinnerType, OpponentColor, OpponentType, WinnerCapture, OpponentCapture, IsFiveInARow],
-        (   WinnerType = 'Human'
-        ->  HumanScore is WinnerCapture + IsFiveInARow ,
-        ComputerScore is OpponentCapture,
-            format('Human Scores: ~a~n', [HumanScore]),
-            format('Computer Scores: ~a~n', [ComputerScore])
+calculate_score(Result, HumanScore, ComputerScore) :-
+    Result = [Board, WinnerColor, WinnerType, OpponentColor, OpponentType, WinnerCapture, OpponentCapture, HumanTournament, ComputerTournament, IsFiveInARow],
+    (   WinnerType = 'Human'
+    ->  HumanScore is WinnerCapture + IsFiveInARow ,
+    ComputerScore is OpponentCapture,
+        format('Human Scores: ~a~n', [HumanScore]),
+        format('Computer Scores: ~a~n', [ComputerScore])
 
-            
-        ;   HumanScore is OpponentCapture, 
-        ComputerScore is WinnerCapture + IsFiveInARow, 
-            format('Human Scores: ~a~n', [HumanScore]),
-            format('Computer Scores: ~a~n', [ComputerScore])
-            
-        ).
+        
+    ;   HumanScore is OpponentCapture, 
+    ComputerScore is WinnerCapture + IsFiveInARow, 
+        format('Human Scores: ~a~n', [HumanScore]),
+        format('Computer Scores: ~a~n', [ComputerScore])
+        
+    ).
+
+captures(PlayerType, PlayerCapture, OpponentType, OpponentCapture) :-
+    format('--------------------------------------------~n'),
+    format('~w Captures: ~w~n', [PlayerType, PlayerCapture]),
+    format('~w Captures: ~w~n', [OpponentType, OpponentCapture]),
+    format('--------------------------------------------~n').
+
+
 
 % Start the game
-start_game :-
+start_round(PlayerType, OpponentType, HumanScore, ComputerScore,Result) :-
     make_2d_board(Board),
-    start_game(PlayerType, OpponentType),
-    play_game(Board, 'W', PlayerType, 'B', OpponentType,0,0, 1, Result),
+    play_game(Board, 'W', PlayerType, 'B', OpponentType,0,0, 1, HumanScore, ComputerScore, Result),
     writeln('Game Over. Result: '),
     writeln(Result).
